@@ -1,0 +1,24 @@
+{
+  "name": "openlidar",
+  "version": "1.0.0",
+  "description": "<p align=\"center\">   <img src=\"https://github.com/TristanMenzinger/OpenLidar/blob/misc/Logo_black_on_white.png?raw=true\" align=\"center\" height=\"190px\"> </p>",
+  "main": "index.js",
+  "scripts": {
+    "dev.server": "http-server -p 7080 --cors",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MrMoonKr/OpenLidar.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/MrMoonKr/OpenLidar/issues"
+  },
+  "homepage": "https://github.com/MrMoonKr/OpenLidar#readme",
+  "dependencies": {
+    "http-server": "^14.1.1"
+  }
+}
