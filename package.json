@@ -1,10 +1,11 @@
 {
   "name": "openlidar",
   "version": "1.0.0",
-  "description": "<p align=\"center\">   <img src=\"https://github.com/TristanMenzinger/OpenLidar/blob/misc/Logo_black_on_white.png?raw=true\" align=\"center\" height=\"190px\"> </p>",
+  "description": "openlidar description",
   "main": "index.js",
   "scripts": {
-    "dev.server": "http-server -p 7080 --cors",
+    "build.dev": "webpack --mode=development",
+    "dev.server": "http-server ./ -p 7080 --cors",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -19,6 +20,16 @@
   },
   "homepage": "https://github.com/MrMoonKr/OpenLidar#readme",
   "dependencies": {
-    "http-server": "^14.1.1"
+    "http-server": "^14.1.1",
+    "pako": "^2.1.0",
+    "proj4": "^2.9.0",
+    "three": "^0.155.0"
+  },
+  "devDependencies": {
+    "rimraf": "^5.0.1",
+    "webpack": "^5.88.2",
+    "webpack-cli": "^5.1.4",
+    "webpack-dev-server": "^4.15.1",
+    "webpack-glsl-loader": "^1.0.1"
   }
 }
