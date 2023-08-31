@@ -13,13 +13,26 @@ console.log( `THREE.REVISION : ${THREE.REVISION}` );
 
 //threejs global variables
 let result;
+
+/**
+ * @type {THREE.Scene}
+ */
 let scene;
+/**
+ * @type {THREE.PerspectiveCamera}
+ */
 let camera;
 /**
  * @type {OrbitControls}
  */
 let controls;
+/**
+ * @type {THREE.WebGLRenderer}
+ */
 let renderer;
+/**
+ * @type {HTMLCanvasElement}
+ */
 let canvas;
 
 /**
@@ -38,7 +51,13 @@ let searchbar_entry_field;
 // Deprecated v0.3
 // let already_loaded = [];
 
+/**
+ * @type {TileObject[]} 캐싱용 배열
+ */
 let all_tiles = [];
+/**
+ * @type {HintObject[]} 캐싱용 배열
+ */
 let all_hint_tiles = [];
 
 let GEOMETRY_LOADING_HINT;
@@ -89,6 +108,12 @@ let onWindowResize = ( event ) => {
     renderer.render( scene, camera );
 }
 
+/**
+ * ( 위도, 경도 ) -> ( UTM x, UTM y )
+ * @param {number} lat 위도( latitude )
+ * @param {number} lng 경도( longitude )
+ * @returns 
+ */
 let ll2WGS = ( lat, lng ) => {
     let wgs_coords = proj4( "+proj=utm +zone=32N, +ellps=WGS84 +datum=WGS84 +units=m +no_defs" ).forward( [ lng, lat ] ) //careful with lat lng order (!) they flipped it 
     return wgs_coords;
@@ -161,6 +186,11 @@ let zoomToNewPlaceLatLng = ( lat, lng ) => {
     console.log( wgs_coords )
 }
 
+/**
+ * 
+ * @param {number} lat 위도( latitude )
+ * @param {number} lng 경도( longitude )
+ */
 let goToLatLng = ( lat, lng ) => {
     //Convert to WGS
     wgs_coords = ll2WGS( lat, lng );
@@ -168,6 +198,11 @@ let goToLatLng = ( lat, lng ) => {
     goToWgs( wgs_coords[ 0 ], wgs_coords[ 1 ] );
 }
 
+/**
+ * UTM Universal Transverse Mercator 좌표계로 데이터 로딩 및 카메라 이동
+ * @param {number} x 
+ * @param {number} y 
+ */
 let goToWgs = ( x, y ) => {
 
     //Wait a little so the animation can work
@@ -176,7 +211,8 @@ let goToWgs = ( x, y ) => {
         first_search_done = true;
     }, 500 );
 
-    if ( first_search_done === false ) {
+    if ( first_search_done === false )
+    {
         removeOverlay();
         initTransferControlsListener();
     }
@@ -190,9 +226,11 @@ let zoomToNewPlace = ( x, y ) => {
     let yR = roundDown50( y );
 
     //get distance from new loc to current viewing point
-    let distance = euclidianDistance( [ xR, yR ], [ controls.target.xR, controls.target.yR ] )
-    console.log( "eucl. distance to new is:", distance )
-    if ( distance > 400 ) {
+    let distance = euclidianDistance( [ xR, yR ], [ controls.target.x, controls.target.y ] );
+    console.log( "eucl. distance to new is:", distance );
+
+    if ( distance > 400 ) 
+    {
         //clean all before loaded ones from scene at least
         all_tiles.map( tile => {
             tile.remove();
@@ -209,7 +247,7 @@ let zoomToNewPlace = ( x, y ) => {
         set_global_offset_z( 0 );
     }
 
-    moveCamera( x, y )
+    moveCamera( x, y );
 }
 
 
@@ -377,7 +415,7 @@ let start = async () => {
     // })
 
     focus_to_searchbar();
-    log_visit();
+    //log_visit();
 
     let cityDiv = document.getElementById( "Benrath Palace" );
     cityDiv.onclick = ( e ) => {
@@ -385,7 +423,9 @@ let start = async () => {
     }
 }
 
-function log_visit() {
+
+function log_visit() 
+{
     const Http = new XMLHttpRequest();
     const url = 'https://openlidar.menzinger.io/visit';
     Http.open( "POST", url );
@@ -417,21 +457,30 @@ function onclick( event ) {
     }
 }
 
-function init_worker() {
+/**
+ * 0.5초 간격으로 카메라가 바라보는 곳의 누락된 맵 타일 로딩
+ */
+function init_worker() 
+{
     setInterval( () => {
-        if ( first_search_done === true ) {
+        if ( first_search_done === true ) // 검색이나 UI에 의해 시작 위치가 설정된 경우
+        {
             // console.log("worker checked")
             let x_focus_center = roundDown50( controls.target.x );
             let y_focus_center = roundDown50( controls.target.y );
 
             //this is slighty inefficient but the easiest way (no request leads to requests which leads to resets, which then leads to more requests... etc)
-            if ( CONCURRENT_HTTP_REQUEST_COUNT === 0 && LOAD_AROUND_NR < 5 ) {
+            if ( CONCURRENT_HTTP_REQUEST_COUNT === 0 && LOAD_AROUND_NR < 5 ) 
+            {
                 //increase area around
                 LOAD_AROUND_NR = LOAD_AROUND_NR + 1;
-            } else {
+            } 
+            else 
+            {
                 //We're busy loading stuff, no need to start more requests
                 LOAD_AROUND_NR = 2;
             }
+
             loadTilesAtIfMissing( x_focus_center, y_focus_center, LOAD_AROUND_NR );
         }
     }, 500 );
@@ -472,36 +521,50 @@ let set_global_offset_z = ( offset_z ) => {
     camera.position.z = global_offset_z + 200;
 }
 
+/**
+ * 
+ * @param {number} x_focus_center 카메라가 바라보는 UTM x좌표
+ * @param {number} y_focus_center 카메라가 바라보는 UTM y좌표
+ * @param {number} load_around_nr 로딩할 주위 타일 범위
+ */
 let loadTilesAtIfMissing = ( x_focus_center, y_focus_center, load_around_nr ) => {
 
-    if ( load_around_nr === undefined || load_around_nr === null ) {
+    if ( load_around_nr === undefined || load_around_nr === null ) 
+    {
         load_around_nr = 3;
     }
 
-    let delta = [ 0 ]
-    for ( let i = load_around_nr; i > 0; i-- ) {
+    let delta = [ 0 ];
+
+    for ( let i = load_around_nr; i > 0; i-- )
+    {
         delta.push( -50 * i )
     }
-    for ( let i = 1; i <= load_around_nr; i++ ) {
+    for ( let i = 1; i <= load_around_nr; i++ )
+    {
         delta.push( 50 * i )
     }
 
-    for ( let i in delta ) {
-        for ( let j in delta ) {
-
-            let x_focus = x_focus_center + delta[ i ]
-            let y_focus = y_focus_center + delta[ j ]
+    for ( let i in delta ) 
+    {
+        for ( let j in delta ) 
+        {
+            let x_focus = x_focus_center + delta[ i ];
+            let y_focus = y_focus_center + delta[ j ];
 
             let found = all_tiles.find( chunk => {
                 return ( chunk.x50 ) === ( x_focus ) && ( chunk.y50 ) === ( y_focus )
             } )
 
-            if ( found === undefined ) {
+            if ( found === undefined ) 
+            {
                 //No yet defined -> download then show it
                 let newTile = new TileObject( x_focus, y_focus );
                 newTile.downloadAndShow();
                 newTile.download_started = true;
-            } else if ( !found.isShowing() && found.isDownloadStarted() && found.isDownloadFinished() ) {
+            } 
+            else if ( !found.isShowing() && found.isDownloadStarted() && found.isDownloadFinished() ) 
+            {
                 //Is fully downloaded and not showing -> show it
                 found.show();
             }
@@ -509,6 +572,11 @@ let loadTilesAtIfMissing = ( x_focus_center, y_focus_center, load_around_nr ) =>
     }
 }
 
+/**
+ * 250m 해상도의 HintObject 생성 ( 3 x 3 개 ) 하여 캐싱
+ * @param {number} x UTM x좌표 ( 50m 해상도 )
+ * @param {number} y UTM y좌표 ( 50m 해상도 )
+ */
 let draw_hint_tiles_from_x_y = ( x, y ) => {
     // get center
     let x250 = roundDown250( x );
@@ -529,11 +597,10 @@ let draw_hint_tiles_from_x_y = ( x, y ) => {
                 return ( hint_tile.x250 ) === ( x_current ) && ( hint_tile.y250 ) === ( y_current )
             } );
 
-            if ( found === undefined ) {
-
+            if ( found === undefined ) 
+            {
                 let hintObject = new HintObject( x_current, y_current );
                 all_hint_tiles.push( hintObject )
-
             }
         }
     }
@@ -576,13 +643,29 @@ let autohide = ( viewpoint_x, viewpoint_y ) => {
     }
 }
 
-class HintObject {
-    constructor( x250, y250 ) {
+/**
+ * 250m x 250m 크기의 사각형
+ */
+class HintObject 
+{
+    constructor( x250, y250 ) 
+    {
+        /**
+         * @type {number} x 위치
+         */
         this.x250 = x250;
+        /**
+         * @type {number} y 위치
+         */
         this.y250 = y250;
 
-        //Standard plane
+        /**
+         * @type {THREE.PlaneGeometry}
+         */
         this.plane = new THREE.PlaneGeometry( 250, 250, 250 );
+        /**
+         * @type {THREE.MeshBasicMaterial} 반투명 재질
+         */
         this.invisible_material = new THREE.MeshBasicMaterial( {
             color: 0xc7c7c7,
             transparent: true,
@@ -590,7 +673,9 @@ class HintObject {
             side: THREE.DoubleSide
         } );
 
-        //Wireframe
+        /**
+         * @type {THREE.EdgesGeometry} 테투리 표현 메시
+         */
         this.geometry = new THREE.EdgesGeometry( this.plane );
         this.wireframe_material = new THREE.LineBasicMaterial( {
             color: 0xc7c7c7
@@ -630,8 +715,20 @@ class HintObject {
     }
 }
 
-class TileObject {
-    constructor( x50, y50 ) {
+/**
+ * 포인트 클라우드로 구성된 50m x 50m 크기의 맵 타일
+ */
+class TileObject
+{
+
+    /**
+     * 50미터 해상도의 UTM 좌표계로 생성
+     * @param {number} x50 UTM 좌표계의 x좌표
+     * @param {number} y50 UTM 좌표계의 y좌표
+     * @returns 
+     */
+    constructor( x50, y50 ) 
+    {
 
         this.creation_date = new Date()
 
@@ -647,7 +744,7 @@ class TileObject {
 
         draw_hint_tiles_from_x_y( x50, y50 );
 
-        all_tiles.push( this );
+        all_tiles.push( this ); // 캐싱
         return this;
     }
 
@@ -661,24 +758,29 @@ class TileObject {
         CONCURRENT_HTTP_REQUEST_COUNT--;
     }
 
-    isShowing() {
+    isShowing() 
+    {
         return this.showing;
     }
 
-    isDownloadStarted() {
+    isDownloadStarted() 
+    {
         return this.download_started;
     }
 
-    isDownloadFinished() {
+    isDownloadFinished() 
+    {
         return this.download_finished;
     }
 
-    removeRawData() {
+    removeRawData() 
+    {
         delete this.xyz;
         delete this.colors;
     }
 
-    async downloadData() {
+    async downloadData() 
+    {
         this.downloadStarted();
 
         // while(CONCURRENT_HTTP_REQUEST_COUNT > 16) {
@@ -689,6 +791,7 @@ class TileObject {
         let data = await getTileData( this.x50, this.y50 );
         this.xyz = data[ 0 ];
         this.colors = data[ 1 ];
+
         this.downloadEnded();
         return this;
     }
@@ -713,14 +816,18 @@ class TileObject {
         }
     }
 
-    show() {
-        if ( !this.isShowing() && !this.empty ) {
+    show() 
+    {
+        if ( !this.isShowing() && !this.empty ) 
+        {
             this.showing = true;
-            if ( this.threejs_points == null ) {
+            if ( this.threejs_points == null ) 
+            {
                 // if(this.threejs_points === undefined || this.threejs_points === null) {
                 this.threejs_points = createTilePoints( this );
                 this.removeRawData();
             }
+
             scene.add( this.threejs_points );
         }
     }
@@ -732,23 +839,33 @@ class TileObject {
         }
     }
 
-    async downloadAndShow() {
+    async downloadAndShow() 
+    {
         //Only if not yet started to download or finished shall we download the data again
-        if ( !this.isDownloadStarted() && !this.isDownloadFinished() ) {
-            this.showLoadingHint()
-            try {
+        if ( !this.isDownloadStarted() && !this.isDownloadFinished() ) 
+        {
+            this.showLoadingHint();
+
+            try 
+            {
                 await this.downloadData();
 
-                if ( this.xyz != null && this.colors != null ) {
+                if ( this.xyz != null && this.colors != null ) 
+                {
                     this.show();
-                } else {
+                } 
+                else 
+                {
                     this.empty = true;
                 }
 
-            } catch ( err ) {
+            } 
+            catch ( err ) 
+            {
                 console.log( "Error downloading data" )
                 console.log( err )
             }
+
             this.removeLoadingHint();
         }
     }
@@ -783,22 +900,43 @@ let sleep = ( ms ) => {
 
 //Fetches and adds to the global scene a 50x50 Tile for given x and y coordinates via the loadPoints and loadColor methods
 //Input 	x, y (lower x coordinate, lower y coordinate)
+
+/**
+ * 50m 해상도의 x, y 좌표에 해당되는 포인터클라우드 데이터 로딩.
+ * @param {number} x50 
+ * @param {number} y50 
+ * @returns 
+ */
 let getTileData = async ( x50, y50 ) => {
-    let xyz = await loadPoints( x50, y50 );
-    let colors = await loadColor( x50, y50 );
+    console.log( `요청 타일 좌표 : ( ${x50} , ${y50} )` );
+
+    let xyz     = await loadPoints( x50, y50 );
+    let colors  = await loadColor( x50, y50 );
     return [ xyz, colors ];
 }
 
 //Load the color data from backblaze via HTTPs-Request given x and y as coordinates (50m-granularity)
 //Input   x, y
 //Output  Array of Points
+/**
+ * 
+ * @param {number} x UTM x 좌표
+ * @param {number} y UTM y 좌표
+ * @returns 
+ */
 let loadPoints = async ( x, y ) => {
-    let request_url = "https://public.openlidar.io/data/lidar/G0/xyz_32N_" + parseInt( roundDown1000( x ) ).toString() + "_" + parseInt( roundDown1000( y ) ).toString() + "/xyz_" + parseInt( x ).toString() + "_" + parseInt( y ).toString() + ".gz"
-    try {
+    let request_url = "https://public.openlidar.io/data/lidar/G0/xyz_32N_" 
+        + parseInt( roundDown1000( x ) ).toString() + "_" + parseInt( roundDown1000( y ) ).toString() 
+        + "/xyz_" + parseInt( x ).toString() + "_" + parseInt( y ).toString() 
+        + ".gz"
+    try 
+    {
         let xyz = await makeRequest( "GET", request_url );
         xyz = CSVToArray( xyz, "," );
         return xyz;
-    } catch {
+    } 
+    catch 
+    {
         console.log( "Fetch returned 404, probably water." );
         return null;
     }
@@ -808,12 +946,18 @@ let loadPoints = async ( x, y ) => {
 //Input   x, y
 //Output  Array of HEX Color Strings
 let loadColor = async ( x, y ) => {
-    let request_url = "https://public.openlidar.io/data/color/G0/col_32N_" + parseInt( roundDown1000( x ) ).toString() + "_" + parseInt( roundDown1000( y ) ).toString() + "/col_" + parseInt( x ).toString() + "_" + parseInt( y ).toString() + ".gz"
-    try {
+    let request_url = "https://public.openlidar.io/data/color/G0/col_32N_" 
+        + parseInt( roundDown1000( x ) ).toString() + "_" + parseInt( roundDown1000( y ) ).toString() 
+        + "/col_" + parseInt( x ).toString() + "_" + parseInt( y ).toString() 
+        + ".gz"
+    try 
+    {
         let colors = await makeRequest( "GET", request_url );
         colors = CSVToArray( colors, " " );
         return colors;
-    } catch {
+    } 
+    catch 
+    {
         console.log( "Fetch returned 404, probably water." );
         return null;
     }
@@ -821,31 +965,39 @@ let loadColor = async ( x, y ) => {
 
 //Add a set of points to the scene
 //Input scene, colors, points, offset's in all directions
+
+/**
+ * 
+ * @param {TileObject} tileObject 
+ * @returns 
+ */
 let createTilePoints = ( tileObject ) => {
 
     //TODO: Fix this workaround with parsing - last row is always "dead" for some reason
     tileObject.xyz.pop()
 
     //create a buffer geometry
-    let geometry = new THREE.BufferGeometry();
+    let geometry    = new THREE.BufferGeometry();
 
     //create arrays of the points and colors
     let n_positions = [];
-    let n_colors = [];
-    let color = new THREE.Color();
+    let n_colors    = [];
+    let color       = new THREE.Color();
 
-    if ( global_offset_z === 0 ) {
+    if ( global_offset_z === 0 ) 
+    {
         global_offset_z = 1; //Just so its immediately set.
         let avg_z = 0;
-        for ( let i in tileObject.xyz ) {
-            avg_z = avg_z + Number( tileObject.xyz[ i ][ 2 ] );
+        for ( let i in tileObject.xyz ) 
+        {
+            avg_z   = avg_z + Number( tileObject.xyz[ i ][ 2 ] );
         }
         set_global_offset_z( avg_z / tileObject.xyz.length );
     }
 
     //TODO:	Do this with the Javascript Numpy equivalent 
-    for ( let i in tileObject.xyz ) {
-
+    for ( let i in tileObject.xyz ) 
+    {
         const pt = tileObject.xyz[ i ];
 
         //deduct the global offsets set on the initial load 
@@ -870,8 +1022,6 @@ let createTilePoints = ( tileObject ) => {
     }
 
     geometry.setAttribute( 'position', new THREE.Float32BufferAttribute( n_positions, 3 ) );
-
-    //Simpifly this with a 1-Element-Array of Colors
     geometry.setAttribute( 'color', new THREE.Float32BufferAttribute( n_colors, 3 ) );
 
     let material = new THREE.PointsMaterial( {
@@ -879,17 +1029,19 @@ let createTilePoints = ( tileObject ) => {
         vertexColors: true,
         color: 0xffffff
     } );
-    // let material = new THREE.PointsMaterial({ size: 0.85, vertexColors: THREE.VertexColors });
+
     let points = new THREE.Points( geometry, material );
     return points;
 }
 
 /* GUI MODIFICATIONS */
-function removeOverlay() {
+function removeOverlay() 
+{
     document.body.setAttribute( "overlay", "0" );
 }
 
-function addOverlay() {
+function addOverlay() 
+{
     document.body.setAttribute( "overlay", "1" );
 }
 
@@ -903,6 +1055,43 @@ let hexToRgb = ( hex ) => {
     let g = ( bigint >> 8 ) & 255;
     let b = bigint & 255;
     return [ r, g, b ];
+}
+
+/**
+ * 
+ * @param {string} method 'GET'
+ * @param {string} url 
+ * @returns 
+ */
+let makeRequestLocal = ( method, url ) => {
+    return new Promise( ( resolve, reject ) => {
+        let xhr = new XMLHttpRequest();
+        xhr.open( method, url );
+        xhr.responseType = "arraybuffer"; //for ungzip with pako
+        xhr.onload = function () {
+            //console.log(xhr)
+            if ( this.status >= 200 && this.status < 300 ) {
+                let arrayBuffer = xhr.response; // Note: not oReq.responseText
+                let byteArray = new Uint8Array( arrayBuffer );
+                let result = pako.inflate( byteArray, {
+                    to: 'string'
+                } );
+                resolve( result );
+            } else {
+                reject( {
+                    status: this.status,
+                    statusText: xhr.statusText
+                } );
+            }
+        };
+        xhr.onerror = function () {
+            reject( {
+                status: this.status,
+                statusText: xhr.statusText
+            } );
+        };
+        xhr.send();
+    } );
 }
 
 // FOR REQUESTS WITHOUT THE PROPER HEADERS!
